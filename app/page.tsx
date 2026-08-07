@@ -1,6 +1,19 @@
+'use client';
+
 import React from 'react';
+import { useAuth } from '@/src/components/AuthProvider';
+import { auth } from '@/src/lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function Dashboard() {
+  const { user } = useAuth();
+
+  const handleSignOut = () => {
+    signOut(auth);
+  };
+
+  if (!user) return null; // AuthProvider handles redirect
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header Navigation */}
@@ -14,7 +27,17 @@ export default function Dashboard() {
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:inline">Trip:</span>
             <span className="text-sm font-bold text-slate-800">Iceland Road Trip '24</span>
           </div>
-          <div className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300"></div>
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center font-bold text-slate-600 uppercase">
+              {user.email?.charAt(0)}
+            </div>
+            <button 
+              onClick={handleSignOut}
+              className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-800"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
