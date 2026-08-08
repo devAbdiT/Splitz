@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/src/lib/auth-server';
 import { db } from '@/src/db';
 import { trips, tripMembers } from '@/src/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 
 export async function GET(
   req: NextRequest,
@@ -24,7 +24,7 @@ export async function GET(
       })
       .from(trips)
       .innerJoin(tripMembers, eq(trips.id, tripMembers.tripId))
-      .where(and(eq(trips.id, tripId), eq(tripMembers.userId, user.id)));
+      .where(and(eq(trips.id, tripId), eq(tripMembers.userId, user.id), isNull(trips.archivedAt)));
 
     if (tripData.length === 0) {
       return NextResponse.json({ error: 'Trip not found or unauthorized' }, { status: 404 });

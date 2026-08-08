@@ -29,6 +29,13 @@ export default function TripDashboard() {
   const [inviteUrl, setInviteUrl] = useState('');
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
+  
+  // Trip Settings State
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [editTripName, setEditTripName] = useState('');
+  const [editTripDesc, setEditTripDesc] = useState('');
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
     const fetchTrip = async () => {
@@ -74,6 +81,61 @@ export default function TripDashboard() {
       console.error('Failed to generate invite');
     } finally {
       setInviteLoading(false);
+    }
+  };
+
+  const handleOpenSettings = () => {
+    if (trip) {
+      setEditTripName(trip.name);
+      setEditTripDesc(trip.description || '');
+      setIsSettingsModalOpen(true);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editTripName.trim()) return;
+    setIsSavingSettings(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch(`/api/trips/${params.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          name: editTripName,
+          description: editTripDesc
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTrip(data.trip);
+        setIsSettingsModalOpen(false);
+      }
+    } catch (err) {
+      console.error('Failed to update trip');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleArchiveTrip = async () => {
+    if (!confirm('Are you sure you want to archive this trip?')) return;
+    setIsArchiving(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch(`/api/trips/${params.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        router.push('/');
+      }
+    } catch (err) {
+      console.error('Failed to archive trip');
+      setIsArchiving(false);
     }
   };
 
@@ -126,12 +188,20 @@ export default function TripDashboard() {
             <span className="text-sm font-bold text-slate-800 truncate max-w-[150px]">{trip.name}</span>
           </div>
           {role === 'admin' && (
-            <button 
-              onClick={handleGenerateInvite}
-              className="hidden sm:block px-4 py-2 bg-slate-900 text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors"
-            >
-              Invite
-            </button>
+            <>
+              <button 
+                onClick={handleGenerateInvite}
+                className="hidden sm:block px-4 py-2 bg-slate-900 text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-slate-800 transition-colors"
+              >
+                Invite
+              </button>
+              <button
+                onClick={handleOpenSettings}
+                className="hidden sm:block p-2 text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                ⚙️
+              </button>
+            </>
           )}
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center font-bold text-slate-600 uppercase">
@@ -310,13 +380,22 @@ export default function TripDashboard() {
           <span className="text-[10px] font-bold uppercase tracking-tighter">Members</span>
         </div>
         {role === 'admin' && (
-          <div 
-            onClick={handleGenerateInvite}
-            className="flex flex-col items-center gap-1 cursor-pointer"
-          >
-            <div className="w-5 h-5 border-2 border-slate-900 flex items-center justify-center font-bold text-xs">+</div>
-            <span className="text-[10px] font-bold uppercase tracking-tighter text-slate-900">Invite</span>
-          </div>
+          <>
+            <div 
+              onClick={handleGenerateInvite}
+              className="flex flex-col items-center gap-1 cursor-pointer"
+            >
+              <div className="w-5 h-5 border-2 border-slate-900 flex items-center justify-center font-bold text-xs">+</div>
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-slate-900">Invite</span>
+            </div>
+            <div 
+              onClick={handleOpenSettings}
+              className="flex flex-col items-center gap-1 cursor-pointer"
+            >
+              <div className="w-5 h-5 flex items-center justify-center text-slate-900 text-lg">⚙️</div>
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-slate-900">Settings</span>
+            </div>
+          </>
         )}
       </nav>
 
@@ -359,6 +438,64 @@ export default function TripDashboard() {
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Link expires in 7 days</p>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {isSettingsModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-black uppercase tracking-tight text-slate-800">Trip Settings</h3>
+              <button 
+                onClick={() => setIsSettingsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleSaveSettings} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Trip Name</label>
+                  <input 
+                    type="text" 
+                    value={editTripName}
+                    onChange={(e) => setEditTripName(e.target.value)}
+                    required
+                    className="bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Description (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={editTripDesc}
+                    onChange={(e) => setEditTripDesc(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <button 
+                  type="submit"
+                  disabled={isSavingSettings}
+                  className="w-full mt-2 py-3 bg-slate-900 text-white rounded font-black text-sm uppercase tracking-widest shadow-lg transition-all hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {isSavingSettings ? 'Saving...' : 'Save Changes'}
+                </button>
+              </form>
+
+              <div className="mt-8 pt-6 border-t border-red-100">
+                <h4 className="text-xs font-bold text-red-500 uppercase tracking-widest mb-2">Danger Zone</h4>
+                <button 
+                  onClick={handleArchiveTrip}
+                  disabled={isArchiving}
+                  className="w-full py-2 border border-red-200 text-red-600 rounded font-bold text-xs uppercase tracking-widest hover:bg-red-50 transition-colors disabled:opacity-50"
+                >
+                  {isArchiving ? 'Archiving...' : 'Archive Trip'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

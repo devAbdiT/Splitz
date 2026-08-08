@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/src/lib/auth-server';
 import { db } from '@/src/db';
 import { trips, tripMembers } from '@/src/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, and, isNull, desc } from 'drizzle-orm';
 
 export async function GET(req: NextRequest) {
   const user = await getAuthenticatedUser(req);
@@ -21,7 +21,12 @@ export async function GET(req: NextRequest) {
       })
       .from(trips)
       .innerJoin(tripMembers, eq(trips.id, tripMembers.tripId))
-      .where(eq(tripMembers.userId, user.id))
+      .where(
+        and(
+          eq(tripMembers.userId, user.id),
+          isNull(trips.archivedAt)
+        )
+      )
       .orderBy(desc(trips.createdAt));
 
     return NextResponse.json({ trips: userTrips });
