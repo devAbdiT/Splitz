@@ -48,9 +48,11 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!loading) {
       if (!user && pathname !== '/login') {
-        router.push('/login');
+        router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
       } else if (user && pathname === '/login') {
-        router.push('/');
+        const searchParams = new URLSearchParams(window.location.search);
+        const redirect = searchParams.get('redirect') || '/';
+        router.push(redirect);
       }
     }
   }, [user, loading, pathname, router]);

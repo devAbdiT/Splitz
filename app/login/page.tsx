@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/src/lib/firebase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function LoginPage() {
+function LoginForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState(''); // Only for signup
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams.get('redirect') || '/';
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ export default function LoginPage() {
         // Create user
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      router.push('/');
+      router.push(redirectUrl);
     } catch (err: any) {
       setError(err.message);
     }
@@ -32,7 +34,7 @@ export default function LoginPage() {
   const handleGoogleAuth = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-      router.push('/');
+      router.push(redirectUrl);
     } catch (err: any) {
       setError(err.message);
     }
@@ -138,3 +140,16 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <div className="w-8 h-8 bg-emerald-600 rounded-sm flex items-center justify-center text-white font-bold text-xl animate-pulse">$</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
