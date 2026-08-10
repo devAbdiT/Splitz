@@ -14,6 +14,15 @@ interface TripData {
   baseCurrency: string;
 }
 
+interface Member {
+  id: number;
+  name: string | null;
+  email: string | null;
+  avatarUrl: string | null;
+  role: string;
+  joinedAt: string;
+}
+
 export default function TripDashboard() {
   const { user } = useAuth();
   const router = useRouter();
@@ -21,6 +30,7 @@ export default function TripDashboard() {
   
   const [trip, setTrip] = useState<TripData | null>(null);
   const [role, setRole] = useState<string>('');
+  const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -38,16 +48,20 @@ export default function TripDashboard() {
   const [isArchiving, setIsArchiving] = useState(false);
 
   useEffect(() => {
-    const fetchTrip = async () => {
+    const fetchTripAndMembers = async () => {
       try {
         const token = await user?.getIdToken();
-        const res = await fetch(`/api/trips/${params.id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setTrip(data.trip);
-          setRole(data.role);
+        const [tripRes, membersRes] = await Promise.all([
+          fetch(`/api/trips/${params.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`/api/trips/${params.id}/members`, { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+
+        if (tripRes.ok && membersRes.ok) {
+          const tripData = await tripRes.json();
+          const membersData = await membersRes.json();
+          setTrip(tripData.trip);
+          setRole(tripData.role);
+          setMembers(membersData.members);
         } else {
           setError('Trip not found or unauthorized');
         }
@@ -59,7 +73,7 @@ export default function TripDashboard() {
     };
 
     if (user && params.id) {
-      fetchTrip();
+      fetchTripAndMembers();
     }
   }, [user, params.id]);
 
@@ -361,6 +375,43 @@ export default function TripDashboard() {
             <div className="mt-4 pt-4 border-t border-slate-100 flex justify-center">
               <button className="w-full py-3 bg-emerald-600 text-white rounded font-black text-sm uppercase tracking-widest shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700">Add New Expense</button>
             </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar: Members */}
+        <div className="w-full lg:w-64 flex flex-col gap-6">
+          <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 flex flex-col shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Trip Members</h3>
+              <div className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{members.length}</div>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              {members.map(member => (
+                <div key={member.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 transition-colors">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center font-bold text-slate-600 uppercase text-xs shrink-0">
+                    {member.name ? member.name.charAt(0) : member.email?.charAt(0) || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">
+                      {member.name || member.email?.split('@')[0] || 'Anonymous'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest truncate">
+                      {member.role === 'admin' ? 'Admin' : 'Member'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {role === 'admin' && (
+              <button 
+                onClick={handleGenerateInvite}
+                className="mt-4 w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 rounded font-bold text-xs uppercase tracking-widest hover:border-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <span>+ Invite</span>
+              </button>
+            )}
           </div>
         </div>
       </main>
