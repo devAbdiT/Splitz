@@ -5,6 +5,7 @@ import { useAuth } from '@/src/components/AuthProvider';
 import { auth } from '@/src/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { ThemeToggle } from '@/src/components/ThemeToggle';
 
 interface Trip {
   id: number;
@@ -83,19 +84,20 @@ export default function TripsDashboard() {
   if (!user) return null;
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <header className="flex items-center justify-between px-4 sm:px-8 h-16 bg-white border-b border-slate-200">
+    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
+      <header className="flex items-center justify-between px-4 sm:px-8 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-emerald-600 rounded-sm flex items-center justify-center text-white font-bold text-xl">$</div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800 uppercase">Lunch Money</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800 dark:text-slate-100 uppercase">Lunch Money</h1>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center font-bold text-slate-600 uppercase">
+          <ThemeToggle />
+          <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 uppercase">
             {user.email?.charAt(0)}
           </div>
           <button 
             onClick={() => signOut(auth)}
-            className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-800"
+            className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-slate-800 dark:hover:text-slate-200"
           >
             Sign Out
           </button>
@@ -114,19 +116,19 @@ export default function TripsDashboard() {
         </div>
 
         {loading ? (
-          <div className="text-center py-10 text-slate-500 text-sm font-bold uppercase tracking-widest animate-pulse">
+          <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-sm font-bold uppercase tracking-widest animate-pulse">
             Loading Trips...
           </div>
         ) : trips.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-lg p-10 text-center flex flex-col items-center shadow-sm">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-              <span className="text-2xl text-slate-400">✈️</span>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-10 text-center flex flex-col items-center shadow-sm">
+            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl text-slate-400 dark:text-slate-500">✈️</span>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">No trips yet</h3>
-            <p className="text-sm text-slate-500 mb-6">Create a trip to start splitting expenses with friends.</p>
+            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">No trips yet</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Create a trip to start splitting expenses with friends.</p>
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="px-6 py-3 bg-emerald-600 text-white rounded font-black text-sm uppercase tracking-widest shadow-md hover:bg-emerald-700 transition-colors"
+              className="px-6 py-3 bg-emerald-600 dark:bg-emerald-700 text-white rounded font-black text-sm uppercase tracking-widest shadow-md hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors"
             >
               Create Your First Trip
             </button>
@@ -137,22 +139,22 @@ export default function TripsDashboard() {
               <div 
                 key={trip.id} 
                 onClick={() => router.push(`/trips/${trip.id}`)}
-                className="bg-white border border-slate-200 rounded-lg shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-emerald-500 transition-all group flex flex-col"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-emerald-500 dark:hover:border-emerald-500 transition-all group flex flex-col"
               >
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-black text-slate-900 group-hover:text-emerald-700 transition-colors">{trip.name}</h3>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">{trip.name}</h3>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                     {trip.role}
                   </span>
                 </div>
                 {trip.description && (
-                  <p className="text-sm text-slate-500 line-clamp-2 mb-4 flex-1">
+                  <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-4 flex-1">
                     {trip.description}
                   </p>
                 )}
-                <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Base: {trip.baseCurrency}</span>
-                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-tighter group-hover:underline">View Trip</span>
+                <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Base: {trip.baseCurrency}</span>
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-500 uppercase tracking-tighter group-hover:underline">View Trip</span>
                 </div>
               </div>
             ))}
@@ -163,36 +165,36 @@ export default function TripsDashboard() {
       {/* Create Trip Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-black uppercase tracking-tight text-slate-800">Create New Trip</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/50">
+              <h3 className="font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">Create New Trip</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 ✕
               </button>
             </div>
             <form onSubmit={handleCreateTrip} className="p-6 flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trip Name</label>
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Trip Name</label>
                 <input
                   type="text"
                   value={newTripName}
                   onChange={(e) => setNewTripName(e.target.value)}
                   required
                   autoFocus
-                  className="bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                   placeholder="e.g. Iceland Road Trip &apos;24"
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Description (Optional)</label>
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Description (Optional)</label>
                 <textarea
                   value={newTripDesc}
                   onChange={(e) => setNewTripDesc(e.target.value)}
                   rows={3}
-                  className="bg-slate-50 border border-slate-200 rounded px-3 py-2 text-sm font-medium text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors resize-none"
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors resize-none"
                   placeholder="A brief description of the trip..."
                 />
               </div>
@@ -200,7 +202,7 @@ export default function TripsDashboard() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded font-black text-sm uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded font-black text-sm uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                 >
                   Cancel
                 </button>
