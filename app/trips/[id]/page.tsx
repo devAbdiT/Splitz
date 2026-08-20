@@ -282,14 +282,14 @@ export default function TripDashboard() {
                     <td className="px-4 sm:px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100 italic">$124.00</td>
                     <td className="px-4 sm:px-6 py-4 text-center"><span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase">Equal</span></td>
                   </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <tr className="bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
                     <td className="px-4 sm:px-6 py-4">
-                      <div className="font-bold text-slate-800 dark:text-slate-200">Borgarhafnir Lobster</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 italic">Food & Dining • July 11</div>
+                      <div className="font-bold text-emerald-900 dark:text-emerald-100">Borgarhafnir Lobster</div>
+                      <div className="text-xs text-emerald-600/70 dark:text-emerald-400/70 italic">Food & Dining • July 11</div>
                     </td>
-                    <td className="px-4 sm:px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">You</td>
-                    <td className="px-4 sm:px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100 italic">$342.10</td>
-                    <td className="px-4 sm:px-6 py-4 text-center"><span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase">Custom</span></td>
+                    <td className="px-4 sm:px-6 py-4 text-emerald-700 dark:text-emerald-300 font-bold">You</td>
+                    <td className="px-4 sm:px-6 py-4 text-right font-bold text-emerald-900 dark:text-emerald-100 italic">$342.10</td>
+                    <td className="px-4 sm:px-6 py-4 text-center"><span className="bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase">Custom</span></td>
                   </tr>
                   <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-4 sm:px-6 py-4">
