@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/src/components/AuthProvider';
 import { auth } from '@/src/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -23,6 +23,23 @@ interface Member {
   role: string;
   joinedAt: string;
 }
+
+interface ExpenseMock {
+  id: number;
+  description: string;
+  category: string;
+  dateStr: string;
+  dateTimestamp: number;
+  paidBy: string;
+  amount: number;
+  split: string;
+}
+
+const mockExpenses: ExpenseMock[] = [
+  { id: 1, description: 'Rental SUV Gas', category: 'Transport', dateStr: 'July 12', dateTimestamp: new Date('2023-07-12').getTime(), paidBy: 'Alex M.', amount: 124.00, split: 'Equal' },
+  { id: 2, description: 'Borgarhafnir Lobster', category: 'Food & Dining', dateStr: 'July 11', dateTimestamp: new Date('2023-07-11').getTime(), paidBy: 'You', amount: 342.10, split: 'Custom' },
+  { id: 3, description: 'Vik Glamping Stay', category: 'Lodging', dateStr: 'July 10', dateTimestamp: new Date('2023-07-10').getTime(), paidBy: 'Sarah K.', amount: 1200.00, split: 'Equal' },
+];
 
 export default function TripDashboard() {
   const { user } = useAuth();
@@ -47,6 +64,33 @@ export default function TripDashboard() {
   const [editTripDesc, setEditTripDesc] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<{ key: 'dateTimestamp' | 'amount'; direction: 'asc' | 'desc' } | null>(null);
+
+  const sortedExpenses = useMemo(() => {
+    let sortableItems = [...mockExpenses];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [sortConfig]);
+
+  const requestSort = (key: 'dateTimestamp' | 'amount') => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   useEffect(() => {
     const fetchTripAndMembers = async () => {
@@ -264,42 +308,70 @@ export default function TripDashboard() {
             </div>
             <div className="flex-1 overflow-x-auto">
               <table className="w-full text-sm text-left min-w-[500px]">
-                <thead className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 uppercase text-[10px] font-bold">
+                <thead className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 uppercase text-[10px] font-bold select-none">
                   <tr>
-                    <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800">Description</th>
+                    <th 
+                      className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
+                      onClick={() => requestSort('dateTimestamp')}
+                    >
+                      <div className="flex items-center gap-1">
+                        Description & Date
+                        <span className={`text-xs ${sortConfig?.key === 'dateTimestamp' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
+                          {sortConfig?.key === 'dateTimestamp' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                      </div>
+                    </th>
                     <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800">Paid By</th>
-                    <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-right">Amount</th>
+                    <th 
+                      className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-right cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
+                      onClick={() => requestSort('amount')}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span className={`text-xs ${sortConfig?.key === 'amount' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
+                          {sortConfig?.key === 'amount' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        </span>
+                        Amount
+                      </div>
+                    </th>
                     <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-center">Split</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="font-bold text-slate-800 dark:text-slate-200">Rental SUV Gas</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 italic">Transport • July 12</div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">Alex M.</td>
-                    <td className="px-4 sm:px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100 italic">$124.00</td>
-                    <td className="px-4 sm:px-6 py-4 text-center"><span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase">Equal</span></td>
-                  </tr>
-                  <tr className="bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="font-bold text-emerald-900 dark:text-emerald-100">Borgarhafnir Lobster</div>
-                      <div className="text-xs text-emerald-600/70 dark:text-emerald-400/70 italic">Food & Dining • July 11</div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-emerald-700 dark:text-emerald-300 font-bold">You</td>
-                    <td className="px-4 sm:px-6 py-4 text-right font-bold text-emerald-900 dark:text-emerald-100 italic">$342.10</td>
-                    <td className="px-4 sm:px-6 py-4 text-center"><span className="bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase">Custom</span></td>
-                  </tr>
-                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-4 sm:px-6 py-4">
-                      <div className="font-bold text-slate-800 dark:text-slate-200">Vik Glamping Stay</div>
-                      <div className="text-xs text-slate-400 dark:text-slate-500 italic">Lodging • July 10</div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-slate-600 dark:text-slate-400 font-medium">Sarah K.</td>
-                    <td className="px-4 sm:px-6 py-4 text-right font-bold text-slate-900 dark:text-slate-100 italic">$1,200.00</td>
-                    <td className="px-4 sm:px-6 py-4 text-center"><span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase">Equal</span></td>
-                  </tr>
+                  {sortedExpenses.map((expense) => {
+                    const isYou = expense.paidBy === 'You';
+                    return (
+                      <tr 
+                        key={expense.id} 
+                        className={isYou 
+                          ? "bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                        }
+                      >
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className={`font-bold ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-200'}`}>
+                            {expense.description}
+                          </div>
+                          <div className={`text-xs italic ${isYou ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-slate-400 dark:text-slate-500'}`}>
+                            {expense.category} • {expense.dateStr}
+                          </div>
+                        </td>
+                        <td className={`px-4 sm:px-6 py-4 font-bold ${isYou ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400 font-medium'}`}>
+                          {expense.paidBy}
+                        </td>
+                        <td className={`px-4 sm:px-6 py-4 text-right font-bold italic ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                          ${expense.amount.toFixed(2)}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-center">
+                          <span className={isYou 
+                            ? "bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
+                          }>
+                            {expense.split}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
