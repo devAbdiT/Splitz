@@ -21,29 +21,34 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        // Sync user to database
-        try {
-          const token = await firebaseUser.getIdToken();
-          await fetch('/api/auth/sync', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-        } catch (error) {
-          console.error("Failed to sync user:", error);
-        }
-      }
-
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      let mounted = true;
+      user.getIdToken().then(token => {
+        if (!mounted) return;
+        return fetch('/api/auth/sync', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }).catch(error => {
+        if (!mounted) return;
+        console.error("Failed to sync user:", error);
+      });
+      return () => {
+        mounted = false;
+      };
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!loading) {
