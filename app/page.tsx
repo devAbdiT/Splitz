@@ -6,6 +6,7 @@ import { auth } from '@/src/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
+import { cn, getAvatarColor } from '@/lib/utils';
 
 interface Trip {
   id: number;
@@ -92,8 +93,11 @@ export default function TripsDashboard() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 uppercase">
-            {user.email?.charAt(0)}
+          <div className={cn(
+            "w-9 h-9 rounded-full border border-white/20 dark:border-slate-800/50 flex items-center justify-center font-bold text-white uppercase shadow-sm",
+            getAvatarColor(user.email || user.displayName || 'User')
+          )}>
+            {user.email?.charAt(0) || user.displayName?.charAt(0) || '?'}
           </div>
           <button 
             onClick={() => signOut(auth)}

@@ -7,6 +7,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { ThemeToggle } from '@/src/components/ThemeToggle';
+import { cn, getAvatarColor } from '@/lib/utils';
 
 interface TripData {
   id: number;
@@ -264,8 +265,11 @@ export default function TripDashboard() {
           )}
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-300 uppercase">
-              {user.email?.charAt(0)}
+            <div className={cn(
+              "w-9 h-9 rounded-full border border-white/20 dark:border-slate-800/50 flex items-center justify-center font-bold text-white uppercase shadow-sm",
+              getAvatarColor(user.email || user.displayName || 'User')
+            )}>
+              {user.email?.charAt(0) || user.displayName?.charAt(0) || '?'}
             </div>
             <button 
               onClick={handleSignOut}
@@ -461,21 +465,28 @@ export default function TripDashboard() {
             </div>
             
             <div className="flex flex-col gap-3">
-              {members.map(member => (
-                <div key={member.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-slate-600 dark:text-slate-400 uppercase text-xs shrink-0">
-                    {member.name ? member.name.charAt(0) : member.email?.charAt(0) || '?'}
+              {members.map(member => {
+                const memberIdentifier = member.name || member.email || 'Anonymous';
+                const initial = member.name ? member.name.charAt(0) : (member.email ? member.email.charAt(0) : '?');
+                return (
+                  <div key={member.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <div className={cn(
+                      "w-8 h-8 rounded-full border border-white/20 dark:border-slate-800/50 flex items-center justify-center font-bold text-white uppercase text-xs shrink-0 shadow-sm",
+                      getAvatarColor(memberIdentifier)
+                    )}>
+                      {initial}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
+                        {member.name || member.email?.split('@')[0] || 'Anonymous'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-bold tracking-widest truncate">
+                        {member.role === 'admin' ? 'Admin' : 'Member'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">
-                      {member.name || member.email?.split('@')[0] || 'Anonymous'}
-                    </p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-500 uppercase font-bold tracking-widest truncate">
-                      {member.role === 'admin' ? 'Admin' : 'Member'}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {role === 'admin' && (
