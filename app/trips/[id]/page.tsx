@@ -25,22 +25,20 @@ interface Member {
   joinedAt: string;
 }
 
-interface ExpenseMock {
+interface Expense {
   id: number;
   description: string;
   category: string;
-  dateStr: string;
-  dateTimestamp: number;
-  paidBy: string;
+  date: string;
+  createdAt: string;
+  paidBy: {
+    id: number;
+    name: string;
+    email: string;
+  };
   amount: number;
-  split: string;
+  splitType: string;
 }
-
-const mockExpenses: ExpenseMock[] = [
-  { id: 1, description: 'Rental SUV Gas', category: 'Transport', dateStr: 'July 12', dateTimestamp: new Date('2023-07-12').getTime(), paidBy: 'Alex M.', amount: 124.00, split: 'Equal' },
-  { id: 2, description: 'Borgarhafnir Lobster', category: 'Food & Dining', dateStr: 'July 11', dateTimestamp: new Date('2023-07-11').getTime(), paidBy: 'You', amount: 342.10, split: 'Custom' },
-  { id: 3, description: 'Vik Glamping Stay', category: 'Lodging', dateStr: 'July 10', dateTimestamp: new Date('2023-07-10').getTime(), paidBy: 'Sarah K.', amount: 1200.00, split: 'Equal' },
-];
 
 export default function TripDashboard() {
   const { user } = useAuth();
@@ -50,9 +48,19 @@ export default function TripDashboard() {
   const [trip, setTrip] = useState<TripData | null>(null);
   const [role, setRole] = useState<string>('');
   const [members, setMembers] = useState<Member[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
+  // Add Expense State
+  const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
+  const [addExpenseLoading, setAddExpenseLoading] = useState(false);
+  const [newExpenseDesc, setNewExpenseDesc] = useState('');
+  const [newExpenseAmount, setNewExpenseAmount] = useState('');
+  const [newExpenseDate, setNewExpenseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newExpenseCategory, setNewExpenseCategory] = useState('Food & Dining');
+  const [newExpensePaidBy, setNewExpensePaidBy] = useState('');
+
   // Invite Modal State
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
@@ -67,25 +75,33 @@ export default function TripDashboard() {
   const [isArchiving, setIsArchiving] = useState(false);
 
   // Sorting state
-  const [sortConfig, setSortConfig] = useState<{ key: 'dateTimestamp' | 'amount'; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'amount'; direction: 'asc' | 'desc' } | null>(null);
 
   const sortedExpenses = useMemo(() => {
-    let sortableItems = [...mockExpenses];
+    let sortableItems = [...expenses];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+        
+        if (sortConfig.key === 'date') {
+          valA = new Date(a.date).getTime() as any;
+          valB = new Date(b.date).getTime() as any;
+        }
+        
+        if (valA < valB) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
+        if (valA > valB) {
           return sortConfig.direction === 'asc' ? 1 : -1;
         }
         return 0;
       });
     }
     return sortableItems;
-  }, [sortConfig]);
+  }, [expenses, sortConfig]);
 
-  const requestSort = (key: 'dateTimestamp' | 'amount') => {
+  const requestSort = (key: 'date' | 'amount') => {
     let direction: 'asc' | 'desc' = 'desc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
       direction = 'asc';
@@ -93,35 +109,76 @@ export default function TripDashboard() {
     setSortConfig({ key, direction });
   };
 
-  useEffect(() => {
-    const fetchTripAndMembers = async () => {
-      try {
-        const token = await user?.getIdToken();
-        const [tripRes, membersRes] = await Promise.all([
-          fetch(`/api/trips/${params.id}`, { headers: { Authorization: `Bearer ${token}` } }),
-          fetch(`/api/trips/${params.id}/members`, { headers: { Authorization: `Bearer ${token}` } })
-        ]);
+  const fetchTripData = async () => {
+    try {
+      const token = await user?.getIdToken();
+      const [tripRes, membersRes, expensesRes] = await Promise.all([
+        fetch(`/api/trips/${params.id}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/trips/${params.id}/members`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/trips/${params.id}/expenses`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
 
-        if (tripRes.ok && membersRes.ok) {
-          const tripData = await tripRes.json();
-          const membersData = await membersRes.json();
-          setTrip(tripData.trip);
-          setRole(tripData.role);
-          setMembers(membersData.members);
-        } else {
-          setError('Trip not found or unauthorized');
+      if (tripRes.ok && membersRes.ok) {
+        const tripData = await tripRes.json();
+        const membersData = await membersRes.json();
+        setTrip(tripData.trip);
+        setRole(tripData.role);
+        setMembers(membersData.members);
+        
+        if (expensesRes.ok) {
+          const expensesData = await expensesRes.json();
+          setExpenses(expensesData.expenses);
         }
-      } catch (err) {
-        setError('Failed to fetch trip details');
-      } finally {
-        setLoading(false);
+      } else {
+        setError('Trip not found or unauthorized');
       }
-    };
+    } catch (err) {
+      setError('Failed to fetch trip details');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (user && params.id) {
-      fetchTripAndMembers();
+      fetchTripData();
     }
   }, [user, params.id]);
+
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newExpenseDesc || !newExpenseAmount || !newExpenseDate || !newExpensePaidBy) return;
+    
+    setAddExpenseLoading(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch(`/api/trips/${params.id}/expenses`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          description: newExpenseDesc,
+          amount: newExpenseAmount,
+          date: newExpenseDate,
+          category: newExpenseCategory,
+          paidById: newExpensePaidBy,
+          splitType: 'equal' // default to equal for now
+        })
+      });
+      if (res.ok) {
+        setIsAddExpenseModalOpen(false);
+        setNewExpenseDesc('');
+        setNewExpenseAmount('');
+        await fetchTripData(); // refresh data
+      }
+    } catch (err) {
+      console.error('Failed to add expense:', err);
+    } finally {
+      setAddExpenseLoading(false);
+    }
+  };
 
   const handleGenerateInvite = async () => {
     setInviteLoading(true);
@@ -308,7 +365,15 @@ export default function TripDashboard() {
           <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden flex flex-col">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/50">
               <h3 className="font-bold uppercase tracking-widest text-xs text-slate-500 dark:text-slate-400">Recent Expenses</h3>
-              <button className="text-emerald-600 dark:text-emerald-500 text-xs font-bold uppercase tracking-tighter hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors">View All History</button>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setIsAddExpenseModalOpen(true)}
+                  className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold uppercase tracking-tighter hover:bg-emerald-700 transition-colors shadow-sm"
+                >
+                  + Add
+                </button>
+                <button className="text-emerald-600 dark:text-emerald-500 text-xs font-bold uppercase tracking-tighter hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors hidden sm:block">View All History</button>
+              </div>
             </div>
             <div className="flex-1 overflow-x-auto">
               <table className="w-full text-sm text-left min-w-[500px]">
@@ -316,12 +381,12 @@ export default function TripDashboard() {
                   <tr>
                     <th 
                       className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
-                      onClick={() => requestSort('dateTimestamp')}
+                      onClick={() => requestSort('date')}
                     >
                       <div className="flex items-center gap-1">
                         Description & Date
-                        <span className={`text-xs ${sortConfig?.key === 'dateTimestamp' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
-                          {sortConfig?.key === 'dateTimestamp' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                        <span className={`text-xs ${sortConfig?.key === 'date' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
+                          {sortConfig?.key === 'date' && sortConfig.direction === 'asc' ? '↑' : '↓'}
                         </span>
                       </div>
                     </th>
@@ -341,41 +406,51 @@ export default function TripDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {sortedExpenses.map((expense) => {
-                    const isYou = expense.paidBy === 'You';
-                    return (
-                      <tr 
-                        key={expense.id} 
-                        className={isYou 
-                          ? "bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                          : "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                        }
-                      >
-                        <td className="px-4 sm:px-6 py-4">
-                          <div className={`font-bold ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-200'}`}>
-                            {expense.description}
-                          </div>
-                          <div className={`text-xs italic ${isYou ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-slate-400 dark:text-slate-500'}`}>
-                            {expense.category} • {expense.dateStr}
-                          </div>
-                        </td>
-                        <td className={`px-4 sm:px-6 py-4 font-bold ${isYou ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400 font-medium'}`}>
-                          {expense.paidBy}
-                        </td>
-                        <td className={`px-4 sm:px-6 py-4 text-right font-bold italic ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
-                          ${expense.amount.toFixed(2)}
-                        </td>
-                        <td className="px-4 sm:px-6 py-4 text-center">
-                          <span className={isYou 
-                            ? "bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
-                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
-                          }>
-                            {expense.split}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {sortedExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 italic text-sm">
+                        No expenses yet. Add one to get started!
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedExpenses.map((expense) => {
+                      const isYou = expense.paidBy.email === user?.email;
+                      const dateObj = new Date(expense.date);
+                      const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                      return (
+                        <tr 
+                          key={expense.id} 
+                          className={isYou 
+                            ? "bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                          }
+                        >
+                          <td className="px-4 sm:px-6 py-4">
+                            <div className={`font-bold ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-200'}`}>
+                              {expense.description}
+                            </div>
+                            <div className={`text-xs italic ${isYou ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-slate-400 dark:text-slate-500'}`}>
+                              {expense.category} • {formattedDate}
+                            </div>
+                          </td>
+                          <td className={`px-4 sm:px-6 py-4 font-bold ${isYou ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400 font-medium'}`}>
+                            {isYou ? 'You' : (expense.paidBy.name || expense.paidBy.email.split('@')[0])}
+                          </td>
+                          <td className={`px-4 sm:px-6 py-4 text-right font-bold italic ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                            ${typeof expense.amount === 'number' ? expense.amount.toFixed(2) : parseFloat(expense.amount).toFixed(2)}
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 text-center">
+                            <span className={isYou 
+                              ? "bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
+                            }>
+                              {expense.splitType || 'EQUAL'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -534,6 +609,101 @@ export default function TripDashboard() {
           </>
         )}
       </nav>
+
+      {/* Add Expense Modal */}
+      {isAddExpenseModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-sm overflow-hidden flex flex-col border border-transparent dark:border-slate-800">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/50">
+              <h3 className="font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">Add Expense</h3>
+              <button 
+                onClick={() => setIsAddExpenseModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleAddExpense} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Description</label>
+                  <input 
+                    type="text" 
+                    value={newExpenseDesc}
+                    onChange={(e) => setNewExpenseDesc(e.target.value)}
+                    placeholder="e.g. Dinner at Luigi's"
+                    required
+                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-1 flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-slate-400 font-bold">$</span>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        min="0"
+                        value={newExpenseAmount}
+                        onChange={(e) => setNewExpenseAmount(e.target.value)}
+                        placeholder="0.00"
+                        required
+                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded pl-7 pr-3 py-2 text-sm font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1 flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Date</label>
+                    <input 
+                      type="date" 
+                      value={newExpenseDate}
+                      onChange={(e) => setNewExpenseDate(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Category</label>
+                  <select
+                    value={newExpenseCategory}
+                    onChange={(e) => setNewExpenseCategory(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option>Food & Dining</option>
+                    <option>Transport</option>
+                    <option>Lodging</option>
+                    <option>Activities</option>
+                    <option>General</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Paid By</label>
+                  <select
+                    value={newExpensePaidBy}
+                    onChange={(e) => setNewExpensePaidBy(e.target.value)}
+                    required
+                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                  >
+                    <option value="" disabled>Select member...</option>
+                    {members.map(m => (
+                      <option key={m.id} value={m.id}>{m.name || m.email}</option>
+                    ))}
+                  </select>
+                </div>
+                <button 
+                  type="submit"
+                  disabled={addExpenseLoading}
+                  className="w-full mt-2 py-3 bg-emerald-600 text-white rounded font-black text-sm uppercase tracking-widest shadow-lg transition-all hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {addExpenseLoading ? 'Adding...' : 'Save Expense'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Invite Modal */}
       {isInviteModalOpen && (
