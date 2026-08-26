@@ -15,6 +15,7 @@ export const trips = pgTable('trips', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   description: text('description'),
+  type: text('type').default('Travel').notNull(),
   coverImageUrl: text('cover_image_url'),
   baseCurrency: text('base_currency').default('USD'),
   archivedAt: timestamp('archived_at'),

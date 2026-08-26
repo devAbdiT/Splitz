@@ -12,6 +12,7 @@ interface Trip {
   id: number;
   name: string;
   description: string | null;
+  type: string;
   baseCurrency: string;
   role: string;
 }
@@ -26,6 +27,7 @@ export default function TripsDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTripName, setNewTripName] = useState('');
   const [newTripDesc, setNewTripDesc] = useState('');
+  const [newTripType, setNewTripType] = useState('Travel');
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -65,6 +67,7 @@ export default function TripsDashboard() {
         body: JSON.stringify({
           name: newTripName,
           description: newTripDesc,
+          type: newTripType,
           baseCurrency: 'USD'
         })
       });
@@ -75,6 +78,7 @@ export default function TripsDashboard() {
         setIsModalOpen(false);
         setNewTripName('');
         setNewTripDesc('');
+        setNewTripType('Travel');
         router.push(`/trips/${data.trip.id}`);
       }
     } catch (error) {
@@ -146,7 +150,12 @@ export default function TripsDashboard() {
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm p-6 cursor-pointer hover:shadow-md hover:border-emerald-500 dark:hover:border-emerald-500 transition-all group flex flex-col"
               >
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">{trip.name}</h3>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">{trip.name}</h3>
+                    <span className="inline-block mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded">
+                      {trip.type}
+                    </span>
+                  </div>
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
                     {trip.role}
                   </span>
@@ -191,6 +200,19 @@ export default function TripsDashboard() {
                   className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
                   placeholder="e.g. Iceland Road Trip &apos;24"
                 />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Trip Type</label>
+                <select
+                  value={newTripType}
+                  onChange={(e) => setNewTripType(e.target.value)}
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                >
+                  <option value="Travel">Travel</option>
+                  <option value="Event">Event</option>
+                  <option value="House">House</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Description (Optional)</label>

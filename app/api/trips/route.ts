@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
         id: trips.id,
         name: trips.name,
         description: trips.description,
+        type: trips.type,
         coverImageUrl: trips.coverImageUrl,
         baseCurrency: trips.baseCurrency,
         createdAt: trips.createdAt,
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, description, baseCurrency } = body;
+    const { name, description, type, baseCurrency } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
         .values({
           name,
           description: description || null,
+          type: type || 'Travel',
           baseCurrency: baseCurrency || 'USD',
         })
         .returning();

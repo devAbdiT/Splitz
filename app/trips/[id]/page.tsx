@@ -13,6 +13,7 @@ interface TripData {
   id: number;
   name: string;
   description: string | null;
+  type: string;
   baseCurrency: string;
 }
 
@@ -74,6 +75,7 @@ export default function TripDashboard() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [editTripName, setEditTripName] = useState('');
   const [editTripDesc, setEditTripDesc] = useState('');
+  const [editTripType, setEditTripType] = useState('Travel');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
@@ -245,6 +247,7 @@ export default function TripDashboard() {
     if (trip) {
       setEditTripName(trip.name);
       setEditTripDesc(trip.description || '');
+      setEditTripType(trip.type || 'Travel');
       setIsSettingsModalOpen(true);
     }
   };
@@ -263,7 +266,8 @@ export default function TripDashboard() {
         },
         body: JSON.stringify({
           name: editTripName,
-          description: editTripDesc
+          description: editTripDesc,
+          type: editTripType
         })
       });
       if (res.ok) {
@@ -343,6 +347,9 @@ export default function TripDashboard() {
           <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-md">
             <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:inline">Trip:</span>
             <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[150px]">{trip.name}</span>
+            <span className="ml-1 text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+              {trip.type}
+            </span>
           </div>
           {role === 'admin' && (
             <>
@@ -931,6 +938,19 @@ export default function TripDashboard() {
                     required
                     className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
                   />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Trip Type</label>
+                  <select
+                    value={editTripType}
+                    onChange={(e) => setEditTripType(e.target.value)}
+                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+                  >
+                    <option value="Travel">Travel</option>
+                    <option value="Event">Event</option>
+                    <option value="House">House</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Description (Optional)</label>

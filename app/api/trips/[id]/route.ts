@@ -60,13 +60,14 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { name, description } = body;
+    const { name, description, type } = body;
 
     const [updatedTrip] = await db
       .update(trips)
       .set({
         name: name || undefined,
         description: description !== undefined ? description : undefined,
+        type: type || undefined,
       })
       .where(eq(trips.id, tripId))
       .returning();
