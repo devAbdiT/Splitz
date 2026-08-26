@@ -49,6 +49,9 @@ export default function TripDashboard() {
   const [role, setRole] = useState<string>('');
   const [members, setMembers] = useState<Member[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [balances, setBalances] = useState<any[]>([]);
+  const [proposedSettlements, setProposedSettlements] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'expenses' | 'balances'>('expenses');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -74,11 +77,22 @@ export default function TripDashboard() {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
 
-  // Sorting state
+  // Sorting & Filtering state
   const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'amount'; direction: 'asc' | 'desc' } | null>(null);
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
 
   const sortedExpenses = useMemo(() => {
     let sortableItems = [...expenses];
+
+    // Apply date filters
+    if (filterStartDate) {
+      sortableItems = sortableItems.filter(e => e.date >= filterStartDate);
+    }
+    if (filterEndDate) {
+      sortableItems = sortableItems.filter(e => e.date <= filterEndDate);
+    }
+
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         let valA = a[sortConfig.key];
@@ -99,7 +113,7 @@ export default function TripDashboard() {
       });
     }
     return sortableItems;
-  }, [expenses, sortConfig]);
+  }, [expenses, sortConfig, filterStartDate, filterEndDate]);
 
   const requestSort = (key: 'date' | 'amount') => {
     let direction: 'asc' | 'desc' = 'desc';
@@ -112,10 +126,11 @@ export default function TripDashboard() {
   const fetchTripData = async () => {
     try {
       const token = await user?.getIdToken();
-      const [tripRes, membersRes, expensesRes] = await Promise.all([
+      const [tripRes, membersRes, expensesRes, balancesRes] = await Promise.all([
         fetch(`/api/trips/${params.id}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`/api/trips/${params.id}/members`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/trips/${params.id}/expenses`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`/api/trips/${params.id}/expenses`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/trips/${params.id}/balances`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
 
       if (tripRes.ok && membersRes.ok) {
@@ -128,6 +143,12 @@ export default function TripDashboard() {
         if (expensesRes.ok) {
           const expensesData = await expensesRes.json();
           setExpenses(expensesData.expenses);
+        }
+        
+        if (balancesRes.ok) {
+          const balancesData = await balancesRes.json();
+          setBalances(balancesData.balances || []);
+          setProposedSettlements(balancesData.proposedSettlements || []);
         }
       } else {
         setError('Trip not found or unauthorized');
@@ -144,6 +165,25 @@ export default function TripDashboard() {
       fetchTripData();
     }
   }, [user, params.id]);
+
+  const handleSettleUp = async (fromUserId: number, toUserId: number, amount: number) => {
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch(`/api/trips/${params.id}/settlements`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ fromUserId, toUserId, amount })
+      });
+      if (res.ok) {
+        await fetchTripData();
+      }
+    } catch (err) {
+      console.error('Failed to settle up:', err);
+    }
+  };
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,114 +386,232 @@ export default function TripDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
               <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Total Spent</p>
-              <p className="text-3xl font-black text-slate-900 dark:text-slate-50">$4,821.50</p>
-              <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-500 font-medium">+ $210.00 today</div>
+              <p className="text-3xl font-black text-slate-900 dark:text-slate-50">
+                ${expenses.reduce((sum, e) => sum + (typeof e.amount === 'number' ? e.amount : parseFloat(e.amount as any)), 0).toFixed(2)}
+              </p>
+              <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-medium">{expenses.length} expenses recorded</div>
             </div>
             <div className="bg-white dark:bg-slate-900 p-5 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
               <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Your Balance</p>
-              <p className="text-3xl font-black text-emerald-600 dark:text-emerald-500">+$142.20</p>
-              <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-medium">Net: 3 owes, 2 owed</div>
+              {(() => {
+                const myBalanceObj = balances.find(b => b.user.email === user?.email);
+                const netBalance = myBalanceObj ? myBalanceObj.netBalance : 0;
+                const isOwed = netBalance > 0;
+                const isOwes = netBalance < 0;
+                return (
+                  <>
+                    <p className={`text-3xl font-black ${isOwed ? 'text-emerald-600 dark:text-emerald-500' : isOwes ? 'text-rose-600 dark:text-rose-500' : 'text-slate-900 dark:text-slate-50'}`}>
+                      {netBalance > 0 ? '+' : ''}${netBalance.toFixed(2)}
+                    </p>
+                    <div className="mt-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      {isOwed ? 'You get back' : isOwes ? 'You owe' : 'Settled up'}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-            <div className="bg-emerald-600 p-5 rounded-lg shadow-sm text-white">
-              <p className="text-xs font-bold text-emerald-100 uppercase tracking-widest mb-1">Group Health</p>
-              <p className="text-3xl font-black uppercase tracking-tighter italic">BALANCED</p>
-              <div className="mt-2 text-xs text-emerald-100 font-medium">All receipts verified</div>
+            <div className={`p-5 rounded-lg shadow-sm text-white ${proposedSettlements.length > 0 ? 'bg-amber-500' : 'bg-emerald-600'}`}>
+              <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${proposedSettlements.length > 0 ? 'text-amber-100' : 'text-emerald-100'}`}>Group Health</p>
+              <p className="text-3xl font-black uppercase tracking-tighter italic">
+                {proposedSettlements.length > 0 ? 'UNSETTLED' : 'BALANCED'}
+              </p>
+              <div className={`mt-2 text-xs font-medium ${proposedSettlements.length > 0 ? 'text-amber-100' : 'text-emerald-100'}`}>
+                {proposedSettlements.length > 0 ? `${proposedSettlements.length} payments remaining` : 'All debts are settled'}
+              </div>
             </div>
           </div>
 
-          {/* Recent Expenses Section */}
+          {/* Main Content Tabs */}
           <div className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden flex flex-col">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/50">
-              <h3 className="font-bold uppercase tracking-widest text-xs text-slate-500 dark:text-slate-400">Recent Expenses</h3>
-              <div className="flex items-center gap-4">
+              <div className="flex space-x-4">
                 <button 
-                  onClick={() => setIsAddExpenseModalOpen(true)}
-                  className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold uppercase tracking-tighter hover:bg-emerald-700 transition-colors shadow-sm"
+                  onClick={() => setActiveTab('expenses')}
+                  className={`font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'expenses' ? 'text-emerald-600 dark:text-emerald-500 border-b-2 border-emerald-500 pb-1' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 pb-1'}`}
                 >
-                  + Add
+                  Expenses
                 </button>
-                <button className="text-emerald-600 dark:text-emerald-500 text-xs font-bold uppercase tracking-tighter hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors hidden sm:block">View All History</button>
+                <button 
+                  onClick={() => setActiveTab('balances')}
+                  className={`font-bold uppercase tracking-widest text-xs transition-colors ${activeTab === 'balances' ? 'text-emerald-600 dark:text-emerald-500 border-b-2 border-emerald-500 pb-1' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 pb-1'}`}
+                >
+                  Balances
+                </button>
               </div>
+              
+              {activeTab === 'expenses' && (
+                <div className="flex items-center gap-4">
+                  <div className="hidden md:flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={filterStartDate}
+                      onChange={(e) => setFilterStartDate(e.target.value)}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <span className="text-slate-400 text-xs">to</span>
+                    <input
+                      type="date"
+                      value={filterEndDate}
+                      onChange={(e) => setFilterEndDate(e.target.value)}
+                      className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                    />
+                    {(filterStartDate || filterEndDate) && (
+                      <button
+                        onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs font-medium px-1"
+                        title="Clear filters"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => setIsAddExpenseModalOpen(true)}
+                    className="px-3 py-1 bg-emerald-600 text-white rounded text-xs font-bold uppercase tracking-tighter hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap"
+                  >
+                    + Add
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="flex-1 overflow-x-auto">
-              <table className="w-full text-sm text-left min-w-[500px]">
-                <thead className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 uppercase text-[10px] font-bold select-none">
-                  <tr>
-                    <th 
-                      className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
-                      onClick={() => requestSort('date')}
-                    >
-                      <div className="flex items-center gap-1">
-                        Description & Date
-                        <span className={`text-xs ${sortConfig?.key === 'date' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
-                          {sortConfig?.key === 'date' && sortConfig.direction === 'asc' ? '↑' : '↓'}
-                        </span>
-                      </div>
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800">Paid By</th>
-                    <th 
-                      className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-right cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
-                      onClick={() => requestSort('amount')}
-                    >
-                      <div className="flex items-center justify-end gap-1">
-                        <span className={`text-xs ${sortConfig?.key === 'amount' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
-                          {sortConfig?.key === 'amount' && sortConfig.direction === 'asc' ? '↑' : '↓'}
-                        </span>
-                        Amount
-                      </div>
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-center">Split</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {sortedExpenses.length === 0 ? (
+
+            {activeTab === 'expenses' ? (
+              <div className="flex-1 overflow-x-auto">
+                <table className="w-full text-sm text-left min-w-[500px]">
+                  <thead className="bg-white dark:bg-slate-900 text-slate-400 dark:text-slate-500 uppercase text-[10px] font-bold select-none">
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 italic text-sm">
-                        No expenses yet. Add one to get started!
-                      </td>
+                      <th 
+                        className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
+                        onClick={() => requestSort('date')}
+                      >
+                        <div className="flex items-center gap-1">
+                          Description & Date
+                          <span className={`text-xs ${sortConfig?.key === 'date' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
+                            {sortConfig?.key === 'date' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                        </div>
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800">Paid By</th>
+                      <th 
+                        className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-right cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors group"
+                        onClick={() => requestSort('amount')}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          <span className={`text-xs ${sortConfig?.key === 'amount' ? 'text-emerald-500 opacity-100' : 'opacity-0 group-hover:opacity-50'}`}>
+                            {sortConfig?.key === 'amount' && sortConfig.direction === 'asc' ? '↑' : '↓'}
+                          </span>
+                          Amount
+                        </div>
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 border-b dark:border-slate-800 text-center">Split</th>
                     </tr>
-                  ) : (
-                    sortedExpenses.map((expense) => {
-                      const isYou = expense.paidBy.email === user?.email;
-                      const dateObj = new Date(expense.date);
-                      const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {sortedExpenses.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-slate-500 dark:text-slate-400 italic text-sm">
+                          No expenses yet. Add one to get started!
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedExpenses.map((expense) => {
+                        const isYou = expense.paidBy.email === user?.email;
+                        const dateObj = new Date(expense.date);
+                        const formattedDate = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        return (
+                          <tr 
+                            key={expense.id} 
+                            className={isYou 
+                              ? "bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                            }
+                          >
+                            <td className="px-4 sm:px-6 py-4">
+                              <div className={`font-bold ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-200'}`}>
+                                {expense.description}
+                              </div>
+                              <div className={`text-xs italic ${isYou ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-slate-400 dark:text-slate-500'}`}>
+                                {expense.category} • {formattedDate}
+                              </div>
+                            </td>
+                            <td className={`px-4 sm:px-6 py-4 font-bold ${isYou ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400 font-medium'}`}>
+                              {isYou ? 'You' : (expense.paidBy.name || expense.paidBy.email.split('@')[0])}
+                            </td>
+                            <td className={`px-4 sm:px-6 py-4 text-right font-bold italic ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                              ${typeof expense.amount === 'number' ? expense.amount.toFixed(2) : parseFloat(expense.amount as any).toFixed(2)}
+                            </td>
+                            <td className="px-4 sm:px-6 py-4 text-center">
+                              <span className={isYou 
+                                ? "bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
+                              }>
+                                {expense.splitType || 'EQUAL'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 dark:bg-slate-900/50">
+                {proposedSettlements.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-slate-400 dark:text-slate-500">
+                    <div className="text-4xl mb-3">🎉</div>
+                    <p className="text-sm font-bold">All settled up!</p>
+                    <p className="text-xs">No one owes anything right now.</p>
+                  </div>
+                ) : (
+                  <div className="max-w-2xl mx-auto space-y-4">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-4">Suggested Payments</h4>
+                    {proposedSettlements.map((settlement, idx) => {
+                      const isMePaying = settlement.fromUser.email === user?.email;
+                      const isMeReceiving = settlement.toUser.email === user?.email;
+                      
                       return (
-                        <tr 
-                          key={expense.id} 
-                          className={isYou 
-                            ? "bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors"
-                            : "hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                          }
-                        >
-                          <td className="px-4 sm:px-6 py-4">
-                            <div className={`font-bold ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-800 dark:text-slate-200'}`}>
-                              {expense.description}
+                        <div key={idx} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-4 flex items-center justify-between shadow-sm">
+                          <div className="flex items-center gap-4">
+                            <div className="flex -space-x-2">
+                              <div className={cn(
+                                "w-10 h-10 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center font-bold text-white uppercase text-xs z-10",
+                                getAvatarColor(settlement.fromUser.email)
+                              )}>
+                                {settlement.fromUser.name?.charAt(0) || settlement.fromUser.email.charAt(0)}
+                              </div>
+                              <div className={cn(
+                                "w-10 h-10 rounded-full border-2 border-white dark:border-slate-800 flex items-center justify-center font-bold text-white uppercase text-xs z-0 opacity-80",
+                                getAvatarColor(settlement.toUser.email)
+                              )}>
+                                {settlement.toUser.name?.charAt(0) || settlement.toUser.email.charAt(0)}
+                              </div>
                             </div>
-                            <div className={`text-xs italic ${isYou ? 'text-emerald-600/70 dark:text-emerald-400/70' : 'text-slate-400 dark:text-slate-500'}`}>
-                              {expense.category} • {formattedDate}
+                            <div>
+                              <p className="text-sm text-slate-800 dark:text-slate-200">
+                                <span className="font-bold">{isMePaying ? 'You' : (settlement.fromUser.name || settlement.fromUser.email.split('@')[0])}</span>
+                                <span className="text-slate-500 mx-1">owe</span>
+                                <span className="font-bold">{isMeReceiving ? 'You' : (settlement.toUser.name || settlement.toUser.email.split('@')[0])}</span>
+                              </p>
+                              <p className="text-lg font-black text-rose-600 dark:text-rose-500">
+                                ${settlement.amount.toFixed(2)}
+                              </p>
                             </div>
-                          </td>
-                          <td className={`px-4 sm:px-6 py-4 font-bold ${isYou ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400 font-medium'}`}>
-                            {isYou ? 'You' : (expense.paidBy.name || expense.paidBy.email.split('@')[0])}
-                          </td>
-                          <td className={`px-4 sm:px-6 py-4 text-right font-bold italic ${isYou ? 'text-emerald-900 dark:text-emerald-100' : 'text-slate-900 dark:text-slate-100'}`}>
-                            ${typeof expense.amount === 'number' ? expense.amount.toFixed(2) : parseFloat(expense.amount).toFixed(2)}
-                          </td>
-                          <td className="px-4 sm:px-6 py-4 text-center">
-                            <span className={isYou 
-                              ? "bg-emerald-200/50 dark:bg-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase"
-                            }>
-                              {expense.splitType || 'EQUAL'}
-                            </span>
-                          </td>
-                        </tr>
+                          </div>
+                          
+                          <button 
+                            onClick={() => handleSettleUp(settlement.fromUser.id, settlement.toUser.id, settlement.amount)}
+                            className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors"
+                          >
+                            Mark Settled
+                          </button>
+                        </div>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
